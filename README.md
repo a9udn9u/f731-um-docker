@@ -1,5 +1,12 @@
 # f731-uml
 
+> **Provenance.** This project was entirely *vibe-coded* — designed, built, and
+> debugged end-to-end by an AI agent running **Usloth Qwen3.8 27B Q6** — with
+> the goal of turning an unrooted **Verizon Galaxy Z Flip5** into a Docker
+> server running inside UML, reachable over SSH. The kernel is based on
+> [zalexdev/linux-um-arm64](https://github.com/zalexdev/linux-um-arm64). It has
+> only been tested on that one device (see [Compatibility](#compatibility)).
+
 Always-on **Docker + SSH in Termux** on a phone, with no `adb`, no root, no
 virtual machine, no privileged network namespaces.
 
@@ -55,9 +62,9 @@ Termux. See `termux/README.md` for the full layout and day-2 operations.
 
 ## Compatibility
 
-Verified on a **Xiaomi f731u / f731u1 (GZE4 build)** — arm64, 4K-page kernel,
-API 35, ≥8 GB RAM. It is *not* tied to that model; the constraints are
-architectural:
+Verified on a **Verizon Galaxy Z Flip5 (SM-F731U / F731U1, GZE4 build)** —
+arm64, 4K-page kernel, API 35, 8 GB RAM. It is *not* tied to that model; the
+constraints are architectural:
 
 - **arm64** only (all artifacts are aarch64).
 - **API 30+** — that is the bionic build target; newer is fine.
