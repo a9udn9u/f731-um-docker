@@ -53,6 +53,26 @@ Then get the artifacts plus the `termux/` scripts onto the phone into
 `$HOME/umd` (image to `/sdcard/umd/`) and run `termux/restart.sh` inside
 Termux. See `termux/README.md` for the full layout and day-2 operations.
 
+## Compatibility
+
+Verified on a **Xiaomi f731u / f731u1 (GZE4 build)** — arm64, 4K-page kernel,
+API 35, ≥8 GB RAM. It is *not* tied to that model; the constraints are
+architectural:
+
+- **arm64** only (all artifacts are aarch64).
+- **API 30+** — that is the bionic build target; newer is fine.
+- **Host kernel page size** — the default build is for **4K-page** devices
+  (like the one above). 16K-page devices (some Android 15+) will not even
+  load the binaries; rebuild per `build/README.md`.
+- **~8 GB RAM / ~6 GB shared storage** minimum — guest defaults are 7168M RAM
+  and a 6144M image; both are per-device knobs, see `termux/README.md` and
+  `image/`.
+- **Termux** for the phoneside.
+- **Stock-ish app sandbox** — the patches assume the standard Android app
+  profile (netlink `bind()` denied, `unshare(CLONE_NEWUSER)` blocked). On a
+  heavily customized ROM, run `termux/umd-probe` and `build/diag/nltest.c`
+  before investing in a full build.
+
 ## How it got here (short version)
 
 Three Android app-sandbox restrictions had to be worked around; each is
