@@ -15,3 +15,6 @@ kbuild.log
 
 # helper APK intermediates (keep ks.jks; rebuild with app/helper/build_apk.py)
 app/helper/out/
+
+__pycache__/
+*.pyc
