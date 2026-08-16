@@ -13,8 +13,9 @@ tree/
 kbuild.log
 *.log
 
-# helper APK intermediates (keep ks.jks; rebuild with app/helper/build_apk.py)
+# helper APK intermediates and signing material (never commit the keystore)
 app/helper/out/
+app/helper/ks.jks
 
 __pycache__/
 *.pyc

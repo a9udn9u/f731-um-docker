@@ -47,7 +47,7 @@ docker run --rm hello-world
 The UML-for-arm64 kernel port itself is **not vendored here**; it is a pinned
 dependency (see `DEPENDS.md`) with attribution to its author.
 
-## Build, from scratch on a Linux x86_64 host
+## Build
 
 ```sh
 export NDK=/opt/android-ndk-r29          # android-ndk-r29

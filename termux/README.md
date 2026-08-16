@@ -73,5 +73,6 @@ write `guest-cmd` into `/sdcard/umd/share/`, bounce the stack via
 ssh -p 2222 root@<phone-ip>
 ```
 
-(`<phone-ip>` is the phone's LAN address; password login as `root`/`<password>`
-also works.)
+(`<phone-ip>` is the phone's LAN address. Log in as `root` with an SSH key —
+installed into the image via the one-shot flow above — or with the password
+you chose at image build time (`ROOT_PW` in `../image/mkimage.sh`).)

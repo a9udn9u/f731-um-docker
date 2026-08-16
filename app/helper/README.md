@@ -37,6 +37,7 @@ manifest it generates plus a `classes.dex` that you must produce first. A full
 build on a host with the Android build tools:
 
 ```sh
+keytool -genkey -v -keystore ks.jks -alias helper -keyalg RSA -keysize 2048 -validity 10000
 javac -source 8 -target 8 -d out src/com/umd/helper/MainActivity.java
 d8 --release --min-api 26 --output out out/com/umd/helper/*.class   # → out/classes.dex
 python3 build_apk.py          # → out/unsigned.apk
@@ -44,13 +45,16 @@ apksigner sign --ks ks.jks out/unsigned.apk                         # → out/un
 mv out/unsigned.apk out/helper.apk
 ```
 
-`d8` and `apksigner` come from the Android SDK build-tools (or the
+`d8`, `apksigner` and `keytool` come from the Android SDK build-tools (or the
 `com.android.tools:r8` jar for d8). The APK targets SDK 33, so a **v2**
 signature is required — plain `jarsigner` (v1 only) will not install on
 Android 11+.
 
-Signs with the bundled `ks.jks` dev key. Rebuild with the same key or
-Termux's `RUN_COMMAND` permission grant will not carry over.
+The signing keystore is deliberately **not committed** (it is signing
+material); generate your own with the `keytool` line above and keep it out of
+the repo (it is git-ignored). Sign with the same key across rebuilds, or
+re-grant Termux's `RUN_COMMAND` permission after installing a differently
+signed APK.
 
 Requires Termux installed and, once, granting the helper the
 `com.termux.permission.RUN_COMMAND` permission (Termux → Settings →

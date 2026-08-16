@@ -5,13 +5,15 @@ boots as a block device (`ubd0=<img> root=/dev/ubda`).
 
 Built by `mkimage.sh` (needs `debootstrap`, `e2fsprogs`, run as root or with
 loop/mke2fs access). Default size 6144 MB — docker + a few images fit with
-room to spare.
+room to spare. Set `ROOT_PW` to choose the root password (unset = key-only).
 
 ## What is inside
 
 - `docker.io` + `containerd.io` — the whole point.
 - `openssh-server` — out-of-band access into the guest (ssh on 169.254.2.1).
-- root password `<password>`, `PermitRootLogin yes`, `PasswordAuthentication yes`.
+- root access: `PermitRootLogin yes`, `PasswordAuthentication yes`. Set a
+  root password at build time (`ROOT_PW=... image/mkimage.sh`); with no
+  `ROOT_PW` the image is key-only.
 - `/etc/resolv.conf` pinned to 1.1.1.1 / 8.8.8.8 (the guest has no DNS of its
   own; 127.0.0.11 is the host's and is not reachable).
 - `/umarm-init` — the init, see below.

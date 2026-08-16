@@ -25,8 +25,11 @@ echo "umarm-docker" > "$DIR/etc/hostname"
 printf '127.0.0.1\tlocalhost umarm-docker\n' > "$DIR/etc/hosts"
 printf '/dev/ubda / ext4 defaults 0 1\n' > "$DIR/etc/fstab"
 
-# root login for the out-of-band sshd; change or remove in production use.
-chroot "$DIR" /bin/sh -c 'echo "root:REDACTED" | chpasswd'
+# Root login for the out-of-band sshd. Bring your own password (no default
+# in a public repo); leave ROOT_PW unset for key-only login.
+if [ -n "${ROOT_PW:-}" ]; then
+    pw="$ROOT_PW" chroot "$DIR" /bin/sh -c 'echo "root:$pw" | chpasswd'
+fi
 
 # sshd must allow the root key/password login that the phoneside relies on.
 printf 'PermitRootLogin yes\nPasswordAuthentication yes\n' \
