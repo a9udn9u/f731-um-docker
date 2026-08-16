@@ -7,6 +7,19 @@ in Termux's own process — the same process the umd stack runs in — so the
 command has Termux's environment and, crucially, survives a launch from
 outside the Termux UI.
 
+## Why it exists
+
+The whole stack lives inside the Termux app process, and Android is free to
+kill or restart apps (battery management, reboots, app updates). For the stack
+to be genuinely *always-on*, something has to relaunch it **without opening
+the Termux UI** — after boot, after a kill, on a schedule. Android's only
+sanctioned way to execute something inside Termux from the outside is the
+permission-gated `RUN_COMMAND` intent, and this APK is the thinnest possible
+thing that can fire it.
+
+It is strictly optional: if you always start the stack by hand inside Termux
+(`termux/umd-start`), you can skip the APK entirely.
+
 Typical use: a launcher shortcut that keeps the stack alive or restarts it,
 e.g.
 

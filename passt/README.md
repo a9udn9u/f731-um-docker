@@ -1,8 +1,13 @@
 # passt (patched for the Android app sandbox)
 
 The network stack of the guest. `passt` is a userspace TCP/IP stack: it turns
-the guest's packets (handed to it by `umnet`) into ordinary outbound sockets,
-so the guest gets internet with no privileges at all.
+the guest's packets (handed to it by `umnet`) into ordinary outbound sockets.
+It does the guest's entire network — NAT, ARP and routing for the
+169.254.2.0/16 subnet, and forwarding of everything (including DNS to the
+public resolvers in the guest's `/etc/resolv.conf`) into plain outbound host
+sockets. No tap device, no network namespace, no root: that is the *only* way
+an unprivileged Android app process can give its guest internet, which is why
+the stack is built around it.
 
 Upstream: <https://passt.top/passt>, pinned to
 `defc25b9444c508d21badb6bc9a0b835ddd01126`.
