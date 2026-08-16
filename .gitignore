@@ -19,3 +19,7 @@ app/helper/ks.jks
 
 __pycache__/
 *.pyc
+# kernel-re/ — local per-device phone-kernel reverse-engineering artifacts
+# (one subdir per device, e.g. f731/): BTF dumps, vmlinux symbol table, kernel
+# Image, per-function disassembly; not committed
+kernel-re/
