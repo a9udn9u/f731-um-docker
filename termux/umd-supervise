@@ -3,7 +3,9 @@ set +e
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 umask 022
 cd "$HOME/umd" || exit 1
-MEM=7168
+# Guest RAM budget: ~80% of the phone's physical RAM
+# (7168 fits an 8 GB-class device). Override: MEM=8192 ./restart.sh
+MEM=${MEM:-7168}
 LOGDIR=/sdcard/umd
 echo "SUPERVISE_START $(date)" >> $LOGDIR/supervise.log
 while :; do

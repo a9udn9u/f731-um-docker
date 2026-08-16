@@ -33,6 +33,9 @@ umnet --passt ./passt --tcp-port 2222:22 -- \
     con=null con0=null,fd:1 umarm.share=/sdcard/umd/share
 ```
 
+- `mem=7168M` — the guest RAM budget: a per-device knob, set it to ~80% of
+  the phone's physical RAM (7168 fits an 8 GB-class device; override with
+  `MEM=8192 ./restart.sh`).
 - `linux-um` — the UML kernel (built by `../build/`).
 - `umnet` — reframes between UML's vector `fd` transport and passt's protocol.
 - `passt` — this directory's wrapper; the real binary is `passt-bin`.
