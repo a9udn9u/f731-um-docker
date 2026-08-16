@@ -1,0 +1,205 @@
+diff --git a/checksum.c b/checksum.c
+index 7c62e42..61f2d41 100644
+--- a/checksum.c
++++ b/checksum.c
+@@ -54,6 +54,7 @@
+ #include <stdint.h>
+ 
+ #include <linux/udp.h>
++#include <netinet/udp.h>
+ #include <linux/icmpv6.h>
+ 
+ #include "util.h"
+diff --git a/conf.c b/conf.c
+index faf2681..4c97178 100644
+--- a/conf.c
++++ b/conf.c
+@@ -28,6 +28,7 @@
+ #include <signal.h>
+ #include <stdlib.h>
+ #include <stdint.h>
++#include <inttypes.h>
+ #include <stdio.h>
+ #include <stdbool.h>
+ #include <syslog.h>
+diff --git a/icmp.c b/icmp.c
+index 0fe2366..2ac6230 100644
+--- a/icmp.c
++++ b/icmp.c
+@@ -20,6 +20,7 @@
+ #include <stdio.h>
+ #include <limits.h>
+ #include <stdint.h>
++#include <inttypes.h>
+ #include <stddef.h>
+ #include <string.h>
+ #include <sys/types.h>
+diff --git a/ip.h b/ip.h
+index aab9b86..7a31e91 100644
+--- a/ip.h
++++ b/ip.h
+@@ -64,6 +64,7 @@
+ 		.daddr		= IN6ADDR_ANY_INIT,			\
+ 	}
+ 
++#ifndef __BIONIC__
+ struct ipv6hdr {
+ #pragma GCC diagnostic push
+ #pragma GCC diagnostic ignored "-Wpedantic"
+@@ -84,7 +85,9 @@ struct ipv6hdr {
+ 	struct in6_addr		saddr;
+ 	struct in6_addr		daddr;
+ };
++#endif
+ 
++#ifndef __BIONIC__
+ struct ipv6_opt_hdr {
+ 	uint8_t			nexthdr;
+ 	uint8_t			hdrlen;
+@@ -92,6 +95,7 @@ struct ipv6_opt_hdr {
+ 	 * TLV encoded option data follows.
+ 	 */
+ } __attribute__((packed));	/* required for some archs */
++#endif
+ 
+ /**
+  * ip6_set_flow_lbl() - Set flow label in an IPv6 header
+diff --git a/isolation.c b/isolation.c
+index a30b329..0b6d492 100644
+--- a/isolation.c
++++ b/isolation.c
+@@ -311,6 +311,9 @@ void isolate_user(const struct ctx *c, uid_t uid, gid_t gid, bool use_userns,
+ {
+ 	uint64_t ns_caps = 0;
+ 
++	if (getenv("PASST_NO_ISOLATE"))
++		return;
++
+ 	/* First set our UID & GID in the original namespace */
+ 	if (setgroups(0, NULL)) {
+ 		/* If we don't have CAP_SETGID, this will EPERM */
+@@ -390,6 +393,9 @@ void isolate_user(const struct ctx *c, uid_t uid, gid_t gid, bool use_userns,
+ int isolate_prefork(const struct ctx *c)
+ {
+ 	int flags = CLONE_NEWIPC | CLONE_NEWNS | CLONE_NEWUTS;
++
++	if (getenv("PASST_NO_ISOLATE"))
++		return 0;
+ 	uint64_t ns_caps = 0;
+ 
+ 	/* If we run in foreground, we have no chance to actually move to a new
+diff --git a/log.c b/log.c
+index cbac2ef..fdef517 100644
+--- a/log.c
++++ b/log.c
+@@ -18,6 +18,10 @@
+ #include <fcntl.h>
+ #include <stdio.h>
+ #include <stdint.h>
++#include <inttypes.h>
++#ifndef _PATH_LOG
++#define _PATH_LOG	"/dev/log"
++#endif
+ #include <stdlib.h>
+ #include <unistd.h>
+ #include <string.h>
+diff --git a/migrate.c b/migrate.c
+index b233dc7..7ca007c 100644
+--- a/migrate.c
++++ b/migrate.c
+@@ -14,6 +14,7 @@
+ 
+ #include <errno.h>
+ #include <sys/uio.h>
++#include <inttypes.h>
+ 
+ #include "util.h"
+ #include "ip.h"
+diff --git a/passt.h b/passt.h
+index 51ccd4f..e68d321 100644
+--- a/passt.h
++++ b/passt.h
+@@ -46,6 +46,12 @@ extern char *epoll_type_str[];
+ 	                                    epoll_type_str[(n)] : "?")
+ 
+ #include <resolv.h>	/* For MAXNS below */
++#ifndef MAXNS
++#define MAXNS		3
++#endif
++#ifndef MAXDNSRCH
++#define MAXDNSRCH	6
++#endif
+ 
+ /**
+  * struct fqdn - Representation of fully-qualified domain name
+diff --git a/tcp.c b/tcp.c
+index 3b78d2e..78e6b1f 100644
+--- a/tcp.c
++++ b/tcp.c
+@@ -283,6 +283,7 @@
+ #include <netinet/ip.h>
+ #include <netinet/tcp.h>
+ #include <stdint.h>
++#include <inttypes.h>
+ #include <stdbool.h>
+ #include <stddef.h>
+ #include <string.h>
+@@ -327,7 +328,7 @@
+  */
+ #define OPTLEN_MAX (((1UL << 4) - 1 - 5) * 4UL)
+ 
+-#ifndef __USE_MISC
++#if !defined(__USE_MISC) && !defined(__BIONIC__)
+ /* From Linux UAPI, missing in netinet/tcp.h provided by musl */
+ struct tcp_repair_opt {
+ 	__u32	opt_code;
+@@ -764,7 +765,7 @@ static void tcp_rtt_dst_check(const struct tcp_tap_conn *conn,
+ 	for (i = 0; i < LOW_RTT_TABLE_SIZE; i++) {
+ 		if (inany_equals(&tapside->oaddr, low_rtt_dst + i))
+ 			return;
+-		if (hole == -1 && IN6_IS_ADDR_UNSPECIFIED(low_rtt_dst + i))
++		if (hole == -1 && IN6_IS_ADDR_UNSPECIFIED(&low_rtt_dst[i].a6))
+ 			hole = i;
+ 	}
+ 
+diff --git a/util.c b/util.c
+index 28c32e4..3ee1b48 100644
+--- a/util.c
++++ b/util.c
+@@ -15,6 +15,7 @@
+ #include <sched.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <inttypes.h>
+ #include <unistd.h>
+ #include <arpa/inet.h>
+ #include <net/ethernet.h>
+diff --git a/virtio.c b/virtio.c
+index d7016cc..f4bf863 100644
+--- a/virtio.c
++++ b/virtio.c
+@@ -84,6 +84,12 @@
+ #include "virtio.h"
+ #include "vhost_user.h"
+ 
++#ifndef vring_need_event
++#define vring_need_event(ev, new, old)					\
++	((uint16_t)(new) < (uint16_t)(old) ||				\
++	 (uint16_t)((new) - (uint16_t)(ev) - 1) < (uint16_t)((old) - (ev)))
++#endif
++
+ #define VIRTQUEUE_MAX_SIZE 1024
+ 
+ /**
+diff --git a/vu_common.c b/vu_common.c
+index d07f584..60eb120 100644
+--- a/vu_common.c
++++ b/vu_common.c
+@@ -6,6 +6,7 @@
+  */
+ 
+ #include <errno.h>
++#include <inttypes.h>
+ #include <sys/uio.h>
+ #include <sys/eventfd.h>
+ #include <netinet/if_ether.h>

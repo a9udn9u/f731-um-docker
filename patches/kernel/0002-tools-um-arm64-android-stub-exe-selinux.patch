@@ -1,0 +1,22 @@
+diff --git a/tools/um-arm64/harness/android.sh b/tools/um-arm64/harness/android.sh
+index 87dee4bbd..70746acd3 100755
+--- a/tools/um-arm64/harness/android.sh
++++ b/tools/um-arm64/harness/android.sh
+@@ -48,6 +48,17 @@ fi
+ adb shell "chmod 755 $DEV/linux-um" >/dev/null 2>&1
+ cp -f "$BIN" "$OUT/linux" 2>/dev/null
+ 
++# Android's SELinux policy forbids executing a memfd from the shell domain
++# (execveat fails with EACCES), so the embedded stub cannot be used there.
++# Push the stub as a regular file and point the kernel at it via stub_exe=.
++# No-op when the caller already supplies stub_exe= in EXTRA_ARGS.
++STUB_EXE=${STUB_EXE:-$ROOT/stub_exe}
++if [ -f "$STUB_EXE" ] && ! echo "$EXTRA_ARGS" | grep -q "stub_exe="; then
++	adb push "$STUB_EXE" "$DEV/stub_exe" >/dev/null || exit 2
++	adb shell "chmod 755 $DEV/stub_exe" >/dev/null 2>&1
++	EXTRA_ARGS="$EXTRA_ARGS stub_exe=$DEV/stub_exe"
++fi
++
+ # con0=null,fd:1 -- output only, no console input.
+ #
+ # The usual con0=fd:0,fd:1 makes the run depend on what fd 0 happens to be. UML

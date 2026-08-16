@@ -1,0 +1,3 @@
+#!/bin/sh
+# run the exec/userns probes, write results next to this script
+./umdprobe 2>&1 | tee probe.out

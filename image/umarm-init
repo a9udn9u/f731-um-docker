@@ -1,0 +1,93 @@
+#!/bin/sh
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+log() { echo "[umarm-init] $*"; }
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mkdir -p /dev/pts /tmp /run/sshd /sys/fs/cgroup
+mount -t devpts devpts /dev/pts
+mount -t tmpfs tmpfs /tmp
+mount -t cgroup2 none /sys/fs/cgroup 2>/dev/null
+
+SHARE=$(sed -n 's/.*umarm.share=\([^ ]*\).*/\1/p' /proc/cmdline)
+CMD=
+if [ -n "$SHARE" ]; then
+	mkdir -p /host
+	mount -t hostfs -o "$SHARE" none /host 2>/dev/null || log HOSTFS_MOUNT_FAILED
+fi
+if [ -f /host/guest-cmd ]; then
+	CMD=$(cat /host/guest-cmd)
+fi
+
+ip link set vec0 up 2>/dev/null || ip link set eth0 up 2>/dev/null || true
+# static config for umarm passt virtual network (169.254.2.0/16)
+ip addr add 169.254.2.1/16 dev vec0 2>/dev/null || ip addr add 169.254.2.1/16 dev eth0
+ip route add default via 169.254.2.2 dev vec0 2>/dev/null || ip route add default via 169.254.2.2 dev eth0
+sleep 2
+
+mkdir -p /var/log/umd
+DOCKER_PID=
+
+start_dockerd() {
+	rm -f /var/run/docker.pid /run/docker.pid /var/run/docker/containerd/containerd.pid
+	dockerd >> /var/log/umd/dockerd.log 2>&1 &
+	DOCKER_PID=$!
+	log "dockerd started pid=$DOCKER_PID"
+}
+
+stop_dockerd() {
+	if [ -n "$DOCKER_PID" ] && kill -0 "$DOCKER_PID" 2>/dev/null; then
+		kill "$DOCKER_PID" 2>/dev/null
+		wait "$DOCKER_PID" 2>/dev/null
+	fi
+	DOCKER_PID=
+}
+
+start_sshd() {
+	mkdir -p /run/sshd
+	/usr/sbin/sshd >> /var/log/umd/sshd.log 2>&1
+}
+
+sshd_alive() {
+	pgrep -x sshd >/dev/null 2>&1
+}
+
+wait_docker() {
+	for i in $(seq 1 60); do
+		docker info >/dev/null 2>&1 && return 0
+		sleep 1
+	done
+	return 1
+}
+
+if [ -n "$CMD" ]; then
+	# One-shot mode: run the command from the share, print markers, exit.
+	start_dockerd
+	wait_docker
+	log "running: $CMD"
+	echo UMARM_OUTPUT_BEGIN
+	sh -c "$CMD" 2>&1
+	RC=$?
+	echo "UMARM_EXIT=$RC"
+	stop_dockerd
+	poweroff -f 2>/dev/null || halt -f 2>/dev/null || exit 0
+fi
+
+# Daemon mode: dockerd and sshd must never exit; supervise both forever.
+log "daemon mode"
+start_dockerd
+start_sshd
+FAILS=0
+while :; do
+	if [ -n "$DOCKER_PID" ] && ! kill -0 "$DOCKER_PID" 2>/dev/null; then
+		log "dockerd died, restarting (fail $FAILS)"
+		start_dockerd
+	fi
+	if ! sshd_alive; then
+		log "sshd died, restarting"
+		start_sshd
+	fi
+	sleep 5
+done

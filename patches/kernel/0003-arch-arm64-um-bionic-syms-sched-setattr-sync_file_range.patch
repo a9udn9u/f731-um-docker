@@ -1,0 +1,10 @@
+diff --git a/arch/arm64/um/bionic-syms.redef b/arch/arm64/um/bionic-syms.redef
+index 446e8e37f..24fb85a78 100644
+--- a/arch/arm64/um/bionic-syms.redef
++++ b/arch/arm64/um/bionic-syms.redef
+@@ -40,3 +40,5 @@ strlcat kernel_strlcat
+ strpbrk kernel_strpbrk
+ strsep kernel_strsep
+ strstr kernel_strstr
++sched_setattr kernel_sched_setattr
++sync_file_range kernel_sync_file_range

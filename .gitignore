@@ -1,0 +1,17 @@
+# deployed binaries (rebuild with build/, image/)
+linux-um
+stub_exe
+umnet
+passt-bin
+umdprobe
+*.ext4
+*.ext4.gz
+
+# build trees/outputs (build scripts default to /tmp; ignore local ones)
+kbuild/
+tree/
+kbuild.log
+*.log
+
+# helper APK intermediates (keep ks.jks; rebuild with app/helper/build_apk.py)
+app/helper/out/

@@ -1,0 +1,2 @@
+#!/bin/sh
+tail -n "${1:-80}" "$(dirname "$0")/umd.out"

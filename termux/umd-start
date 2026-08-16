@@ -1,0 +1,11 @@
+#!/bin/sh
+cd "$(dirname "$0")" || exit 1
+if pgrep -f 'umnet --passt' >/dev/null 2>&1; then
+	echo "umd already running"
+	exit 0
+fi
+if command -v termux-wake-lock >/dev/null 2>&1; then
+	termux-wake-lock
+fi
+nohup ./umd-supervise >/dev/null 2>&1 &
+echo "umd started (pid $!); log: $PWD/umd.out"

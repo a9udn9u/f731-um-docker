@@ -1,0 +1,77 @@
+--- a/util.c
++++ b/util.c
+@@ -393,8 +393,10 @@
+ 	bool ret = true;
+ 	int fd;
+ 
++	/* On Android the app's /proc hides uid_map (ENOENT); treat
++	 * "can't determine" as "not the init namespace" instead of dying */
+ 	if ((fd = open("/proc/self/uid_map", O_RDONLY | O_CLOEXEC)) < 0)
+-		die_perror("Can't determine if we're in init namespace");
++		return false;
+ 
+ 	if (read(fd, buf, sizeof(root_uid_map)) != sizeof(root_uid_map) - 1 ||
+ 	    strncmp(buf, root_uid_map, sizeof(root_uid_map)))
+--- a/netlink.c
++++ b/netlink.c
+@@ -103,18 +103,22 @@
+ 	if (ns) {
+ 		NS_CALL(nl_sock_init_do, c);
+ 		if (nl_sock_ns == -1)
+-			goto fail;
++			die("Failed to get netlink socket in namespace");
+ 	} else {
+ 		nl_sock_init_do(NULL);
+ 	}
+ 
+-	if (nl_sock == -1)
+-		goto fail;
+-
+-	return;
+-
+-fail:
+-	die("Failed to get netlink socket");
++	if (nl_sock == -1) {
++		/*
++		 * Unprivileged (e.g. Android app sandbox) cannot bind
++		 * NETLINK_ROUTE sockets. With an explicit -a/-g/-D
++		 * configuration (or no configuration at all, in which
++		 * case the link-local defaults apply) netlink is not
++		 * needed, so continue and let conf fall back to local
++		 * mode.
++		 */
++		warn("netlink: socket unavailable, continuing without it");
++	}
+ }
+ 
+ /**
+@@ -263,6 +267,9 @@
+  */
+ unsigned int nl_get_ext_if(int s, sa_family_t af)
+ {
++	if (s < 0)
++		return 0;
++
+ 	struct { struct nlmsghdr nlh; struct rtmsg rtm; } req = {
+ 		.rtm.rtm_table	 = RT_TABLE_MAIN,
+ 		.rtm.rtm_scope	 = RT_SCOPE_UNIVERSE,
+@@ -407,6 +414,9 @@
+  */
+ int nl_route_get_def(int s, unsigned int ifi, sa_family_t af, void *gw)
+ {
++	if (s < 0)
++		return -ENETDOWN;
++
+ 	struct req_t {
+ 		struct nlmsghdr nlh;
+ 		struct rtmsg rtm;
+@@ -763,6 +773,9 @@
+ int nl_addr_get(int s, unsigned int ifi, sa_family_t af,
+ 		void *addr, int *prefix_len, void *addr_l)
+ {
++	if (s < 0)
++		return -ENETDOWN;
++
+ 	uint8_t prefix_max = 0, prefix_max_ll = 0;
+ 	struct req_t {
+ 		struct nlmsghdr nlh;

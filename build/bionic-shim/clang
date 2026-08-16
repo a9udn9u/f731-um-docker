@@ -1,0 +1,13 @@
+#!/bin/sh
+# A `clang` wrapper so a plain `clang` invocation (as made by the kernel's
+# kbuild with LLVM=1) targets aarch64 Android bionic: the host's clang driven
+# with the NDK's sysroot and the NDK's own clang resource directory (for the
+# compiler-rt builtins). Put this directory on PATH and set NDK.
+NDK=${NDK:-/opt/android-ndk-r29}
+RDIR=$(ls -d "$NDK/toolchains/llvm/prebuilt/linux-x86_64/lib/clang"/*/ 2>/dev/null | sort -V | tail -1)
+[ -n "$RDIR" ] || { echo "bionic-shim: no clang resource dir under $NDK (set NDK=)" >&2; exit 2; }
+exec /usr/bin/clang "$@" \
+    --target=aarch64-linux-android30 \
+    --rtlib=compiler-rt \
+    --sysroot="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+    -resource-dir="${RDIR%/}"

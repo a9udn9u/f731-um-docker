@@ -1,0 +1,6 @@
+#!/bin/sh
+pkill -f 'umnet --passt' 2>/dev/null
+pkill -f 'umd-supervise' 2>/dev/null
+sleep 1
+pkill -9 -f 'umnet --passt' 2>/dev/null
+echo "umd stopped"

@@ -1,0 +1,93 @@
+diff --git a/tools/um-arm64/harness/umnet.c b/tools/um-arm64/harness/umnet.c
+index 445be478f..9d5841006 100644
+--- a/tools/um-arm64/harness/umnet.c
++++ b/tools/um-arm64/harness/umnet.c
+@@ -31,7 +31,7 @@
+  * argument that points at it.
+  *
+  * Usage:
+- *   umnet [--passt PATH] [--mac MAC] -- ./linux <uml args...>
++ *   umnet [--passt PATH] [--mac MAC] [--tcp-port HOST:GUEST] -- ./linux <uml args...>
+  *
+  * The UML side ends up with, appended to its command line:
+  *   vec0:transport=fd,fd=<n>,mac=<mac>
+@@ -180,9 +180,15 @@ int main(int argc, char **argv)
+ 	const char *mac = "02:00:00:00:00:01";
+ 	const char *iface = NULL;	/* passt -i: which host interface to mirror */
+ 	const char *dns = "1.1.1.1";	/* passt -D: nameserver to announce */
+-	const char *addr = "10.0.2.15";	/* passt -a: address given to the guest */
+-	const char *mask = "24";	/* passt -n */
+-	const char *gw = "10.0.2.2";	/* passt -g: gateway passt emulates */
++	/*
++	 * 169.254.2.x scheme: matches the guest image's static vec0
++	 * configuration and passt's built-in local-mode defaults
++	 * (IP4_LL_GUEST_ADDR / IP4_LL_GUEST_GW / prefix 16).
++	 */
++	const char *addr = "169.254.2.1";	/* passt -a: address given to the guest */
++	const char *mask = "16";	/* passt -n */
++	const char *gw = "169.254.2.2";	/* passt -g: gateway passt emulates */
++	const char *tcp_port = NULL;	/* passt -t: inbound forward HOST:GUEST */
+ 	int uml_sp[2], passt_sp[2], i, umlarg;
+ 	int status, rc = 0;
+ 	char vecarg[128];
+@@ -206,6 +212,8 @@ int main(int argc, char **argv)
+ 			mask = argv[++i];
+ 		else if (!strcmp(argv[i], "--gw") && i + 1 < argc)
+ 			gw = argv[++i];
++		else if (!strcmp(argv[i], "--tcp-port") && i + 1 < argc)
++			tcp_port = argv[++i];
+ 		else if (!strcmp(argv[i], "--"))
+ 			break;
+ 		else {
+@@ -215,7 +223,7 @@ int main(int argc, char **argv)
+ 	}
+ 	if (i >= argc || strcmp(argv[i], "--")) {
+ 		fprintf(stderr,
+-			"usage: umnet [--passt PATH] [--mac MAC] -- ./linux <args...>\n");
++			"usage: umnet [--passt PATH] [--mac MAC] [--tcp-port HOST:GUEST] -- ./linux <args...>\n");
+ 		return 2;
+ 	}
+ 	umlarg = i + 1;
+@@ -264,7 +272,11 @@ int main(int argc, char **argv)
+ 		 * -f  stay in the foreground, so this process is the child we
+ 		 *     can signal and wait on rather than a daemon that outlives
+ 		 *     the guest and holds the socket.
+-		 * -t/-u none  no inbound port forwarding: the guest gets
++		 * -t  inbound port forwarding: none by default, so nothing on the
++		 *     phone's network can reach into the guest; with --tcp-port
++		 *     HOST:GUEST (e.g. 2222:22 for sshd) passt listens on the
++		 *     host side and forwards into the guest.
++		 * -u none  no inbound UDP forwarding: the guest gets
+ 		 *     outbound connectivity, and nothing on the phone's network
+ 		 *     can reach into it.
+ 		 */
+@@ -288,7 +300,11 @@ int main(int argc, char **argv)
+ 			av[n++] = "passt";
+ 			av[n++] = "-f";
+ 			av[n++] = "-F"; av[n++] = fdbuf;
+-			av[n++] = "-t"; av[n++] = "none";
++			if (tcp_port) {
++				av[n++] = "-t"; av[n++] = tcp_port;
++			} else {
++				av[n++] = "-t"; av[n++] = "none";
++			}
+ 			av[n++] = "-u"; av[n++] = "none";
+ 			/*
+ 			 * Give passt the whole network configuration rather than
+@@ -305,11 +321,11 @@ int main(int argc, char **argv)
+ 			 * process can, by opening ordinary sockets, which is
+ 			 * exactly what makes this work without root.
+ 			 */
+-			av[n++] = "-4";
+-			av[n++] = "-a"; av[n++] = addr;
+-			av[n++] = "-n"; av[n++] = mask;
+-			av[n++] = "-g"; av[n++] = gw;
+-			if (dns) { av[n++] = "-D"; av[n++] = dns; }
++		av[n++] = "-4";
++		av[n++] = "-a"; av[n++] = addr;
++		av[n++] = "-n"; av[n++] = mask;
++		av[n++] = "-g"; av[n++] = gw;
++		if (dns) { av[n++] = "-D"; av[n++] = dns; }
+ 			if (iface) { av[n++] = "-i"; av[n++] = iface; }
+ 			av[n] = NULL;
+ 			execv(passt_path, (char *const *)av);

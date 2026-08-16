@@ -1,0 +1,9 @@
+#!/system/bin/sh
+# Wrapper around the real binary (./passt-bin). umnet's --passt argument
+# points here, so this is what the phoneside actually execs.
+#
+# passt normally drops privileges into a new user namespace at start-up. The
+# Android app seccomp filter blocks unshare(CLONE_NEWUSER), and inside the app
+# sandbox that isolation buys nothing, so we ask it to skip it.
+export PASST_NO_ISOLATE=1
+exec ./passt-bin "$@"

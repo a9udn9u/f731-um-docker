@@ -1,0 +1,17 @@
+#!/system/bin/sh
+set +e
+export PATH=/data/data/com.termux/files/usr/bin:$PATH
+umask 022
+cd "$HOME/umd" || exit 1
+MEM=7168
+LOGDIR=/sdcard/umd
+echo "SUPERVISE_START $(date)" >> $LOGDIR/supervise.log
+while :; do
+  echo "ITER $(date)" >> $LOGDIR/supervise.log
+  ./umnet --passt ./passt --tcp-port 2222:22 -- \
+    ./linux-um mem=${MEM}M ubd0=/sdcard/umd/debian-docker.ext4 root=/dev/ubda rw \
+    init=/umarm-init stub_exe="$PWD/stub_exe" panic=-1 seccomp=auto \
+    con=null con0=null,fd:1 umarm.share=/sdcard/umd/share >> $LOGDIR/umd.out 2>&1
+  echo "STACK_EXITED rc=$? $(date)" >> $LOGDIR/supervise.log
+  sleep 3
+done

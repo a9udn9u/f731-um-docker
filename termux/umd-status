@@ -1,0 +1,7 @@
+#!/bin/sh
+if pgrep -f 'umnet --passt' >/dev/null 2>&1; then
+	echo "umd: RUNNING"
+else
+	echo "umd: stopped"
+fi
+tail -5 "$(dirname "$0")/umd.out" 2>/dev/null
