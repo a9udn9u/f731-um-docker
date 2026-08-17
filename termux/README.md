@@ -17,18 +17,23 @@ $HOME/umd/                     # live (app partition, off FUSE)
   restart.sh  umd-supervise
   umnet  linux-um  stub_exe  passt  passt-bin
   debian-docker.ext4           # the guest image the kernel actually mounts
-/sdcard/umd/                   # drop zone (FUSE) + share + logs
+  logs/                        # kernel console: umd.out (capped, rotated to umd.out.old)
+/sdcard/umd/                   # drop zone (FUSE) + the guest's /host share
   debian-docker.ext4           # drop a NEW image here; UMD_SYNC=1 ./restart.sh deploys it
   *.staged                     # staged files; restart.sh installs to $HOME/umd
-  umd.out  supervise.log       # logs
 ```
 
 The **entire** `/sdcard/umd` is the guest's `/host` (via
-`umarm.share=/sdcard/umd`), so from the guest you can read the boot log, the
-supervise log, and push new scripts out as `*.staged`.
+`umarm.share=/sdcard/umd`), so from the guest you can read `/host`, push new
+scripts out as `*.staged`, and use the one-shot `guest-cmd` flow (below). The
+kernel console log is NOT in `/host` — it lives in the app-private
+`$HOME/umd/logs/`, so guest-side debugging is `ssh -p 2222 root@<phone-ip>` +
+`dmesg`.
 
 `restart.sh` is the canonical (re)start. It:
-1. stops the stack (`pkill` supervise/linux-um/umnet/passt);
+1. stops the stack (`pkill` supervise/linux-um/umnet/passt) and wipes stale
+   UML run dirs — the per-boot `~/.uml/<id>/` pid + mconsole dirs only survive
+   unclean exits; the kernel recreates them on the next boot;
 2. installs any `/sdcard/umd/*.staged` into `$HOME/umd/<name>` (+x) and removes
    the staged file — this is the dev→phone update channel (the guest writes to
    `/host`, which is `/sdcard/umd`);
@@ -74,6 +79,19 @@ Other bits:
 Because `umd-supervise` is the parent and never exits, the stack comes back
 after a crash or an OOM kill of any component.
 
+## Logs
+
+Two logs exist:
+
+- `$HOME/umd/logs/umd.out` — the kernel console: everything the guest prints,
+  including `[umarm-init]` lines and the `STACK_EXITED rc=` crash markers.
+  Capped at 8 MiB (`UMD_LOGCAP=n` bytes to change) and rotated to
+  `umd.out.old`.
+- guest `/var/log/umd/` — a 128 MiB tmpfs the guest mounts at boot (RAM,
+  volatile): `dockerd.log` and `sshd.log` live here and vanish on reboot.
+
+There is deliberately no other log — no supervise/restart event log.
+
 ## Usage
 
 ```sh
@@ -115,7 +133,7 @@ To run something inside the guest without a network (e.g. install an SSH key
 into the image), use the one-shot mode described in `../image/README.md`:
 write `guest-cmd` into `/sdcard/umd/` (the guest's `/host`), bounce the stack
 via `restart.sh`, and read the `UMARM_OUTPUT_BEGIN`/`UMARM_EXIT` markers from
-`/sdcard/umd/umd.out`. Remove the `guest-cmd` file afterwards so the next boot
+`$HOME/umd/logs/umd.out`. Remove the `guest-cmd` file afterwards so the next boot
 goes back to daemon mode.
 
 ## Access

@@ -4,4 +4,4 @@ if pgrep -f 'umnet --passt' >/dev/null 2>&1; then
 else
 	echo "umd: stopped"
 fi
-tail -5 "$(dirname "$0")/umd.out" 2>/dev/null
+tail -5 "$HOME/umd/logs/umd.out" 2>/dev/null

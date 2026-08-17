@@ -6,9 +6,11 @@ log() { echo "[umarm-init] $*"; }
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev 2>/dev/null
-mkdir -p /dev/pts /tmp /run/sshd /sys/fs/cgroup
+mkdir -p /dev/pts /tmp /run/sshd /sys/fs/cgroup /var/log/umd
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
+# guest logs on tmpfs (RAM, volatile): dockerd.log, sshd.log
+mount -t tmpfs -o size=128m tmpfs /var/log/umd 2>/dev/null || log TMPFS_LOG_MOUNT_FAILED
 mount -t cgroup2 none /sys/fs/cgroup 2>/dev/null
 # ext2 root: stop atime writes on every read (real win for shell/ls/tar).
 # The kernel mounts root from the cmdline (rw,relatime), not fstab, so we
@@ -31,7 +33,6 @@ ip addr add 169.254.2.1/16 dev vec0 2>/dev/null || ip addr add 169.254.2.1/16 de
 ip route add default via 169.254.2.2 dev vec0 2>/dev/null || ip route add default via 169.254.2.2 dev eth0
 sleep 2
 
-mkdir -p /var/log/umd
 DOCKER_PID=
 
 start_dockerd() {

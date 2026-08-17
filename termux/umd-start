@@ -8,4 +8,4 @@ if command -v termux-wake-lock >/dev/null 2>&1; then
 	termux-wake-lock
 fi
 nohup ./umd-supervise >/dev/null 2>&1 &
-echo "umd started (pid $!); log: $PWD/umd.out"
+echo "umd started (pid $!); log: $HOME/umd/logs/umd.out"

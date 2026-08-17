@@ -3,8 +3,14 @@
 # on any exit. See ../README.md for the architecture.
 #
 # Layout (see ../README.md):
-#   live files  : $HOME/umd          (real app-partition fs; the guest image lives here)
-#   staging/logs: /sdcard/umd        (drop zone for new images, logs, *.staged files)
+#   live files : $HOME/umd               (real app-partition fs; the guest image lives here)
+#   logs       : $HOME/umd/logs          (kernel console umd.out, capped + rotated, off FUSE)
+#   staging    : /sdcard/umd             (drop zone for new images + *.staged files)
+#
+# Guest-side logs live on a tmpfs the guest mounts at /var/log/umd (RAM,
+# volatile): dockerd.log and sshd.log. This host side keeps only the capped
+# kernel console (umd.out), so a crash still leaves a readable boot log on
+# flash. No other log by design.
 #
 # Env knobs (all optional):
 #   MEM=7168      guest RAM budget, ~80% of the phone's RAM
@@ -12,24 +18,32 @@
 #   CPUS=4-7      pin the whole stack to these host cores via taskset. Off by
 #                 default: the kernel port measured single-core pinning as a
 #                 regression on real work, so this is an A/B-test knob.
+#   UMD_LOGCAP=n  umd.out rotation threshold in bytes (default 8388608 = 8 MiB)
 set +e
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 umask 022
 cd "$HOME/umd" || exit 1
 MEM=${MEM:-7168}
 IMG=${UMD_IMG:-$PWD/debian-docker.ext4}
-LOGDIR=/sdcard/umd
+LOG_CAP=${UMD_LOGCAP:-8388608}
+LOGDIR=$PWD/logs
+mkdir -p "$LOGDIR"
 SHARE=/sdcard/umd
-echo "SUPERVISE_START $(date)" >> $LOGDIR/supervise.log
 while :; do
-  echo "ITER $(date)" >> $LOGDIR/supervise.log
+  # rotate the kernel console log: keep one previous generation (total ~2x cap)
+  if [ -f "$LOGDIR/umd.out" ]; then
+    SZ=$(wc -c < "$LOGDIR/umd.out" 2>/dev/null) || SZ=0
+    if [ "${SZ:-0}" -gt "$LOG_CAP" ]; then
+      mv -f "$LOGDIR/umd.out" "$LOGDIR/umd.out.old" 2>/dev/null
+    fi
+  fi
   # The SKAS stub: pass an explicit path when we have one (the app's SELinux
   # domain cannot exec the kernel's default choice); otherwise let the kernel
   # use its memfd stub.
   STUB=
   [ -x "$PWD/stub_exe" ] && STUB="stub_exe=$PWD/stub_exe"
   if [ -n "$CPUS" ] && command -v taskset >/dev/null 2>&1; then
-    echo "AFFINITY $CPUS" >> $LOGDIR/supervise.log
+    echo "AFFINITY $CPUS" >> "$LOGDIR/umd.out"
     taskset -c "$CPUS" ./umnet --passt ./passt --tcp-port 2222:22 -- \
       ./linux-um mem=${MEM}M ubd0="$IMG" root=/dev/ubda rw \
       init=/umarm-init $STUB panic=-1 seccomp=auto \
@@ -40,6 +54,7 @@ while :; do
       init=/umarm-init $STUB panic=-1 seccomp=auto \
       con=null con0=null,fd:1 umarm.share=$SHARE >> $LOGDIR/umd.out 2>&1
   fi
-  echo "STACK_EXITED rc=$? $(date)" >> $LOGDIR/supervise.log
+  RC=$?
+  echo "STACK_EXITED rc=$RC $(date)" >> "$LOGDIR/umd.out"
   sleep 3
 done
