@@ -18,7 +18,7 @@ $HOME/umd/                     # live (app partition, off FUSE)
   umnet  linux-um  stub_exe  passt  passt-bin
   debian-docker.ext4           # the guest image the kernel actually mounts
 /sdcard/umd/                   # drop zone (FUSE) + share + logs
-  debian-docker.ext4           # drop a NEW image here; restart.sh syncs it in
+  debian-docker.ext4           # drop a NEW image here; UMD_SYNC=1 ./restart.sh deploys it
   *.staged                     # staged files; restart.sh installs to $HOME/umd
   umd.out  supervise.log       # logs
 ```
@@ -32,9 +32,11 @@ supervise log, and push new scripts out as `*.staged`.
 2. installs any `/sdcard/umd/*.staged` into `$HOME/umd/<name>` (+x) and removes
    the staged file — this is the dev→phone update channel (the guest writes to
    `/host`, which is `/sdcard/umd`);
-3. syncs the guest image: if `/sdcard/umd/debian-docker.ext4` is newer than (or
-   missing from) `$HOME/umd/debian-docker.ext4`, it copies it across (FUSE read
-   → app-partition write);
+3. deploys the guest image **only on request**: it copies
+   `/sdcard/umd/debian-docker.ext4` → `$HOME/umd/…` when you set `UMD_SYNC=1`
+   (and the drop-zone copy is newer). A plain restart never overwrites the live
+   image — which holds `/var/lib/docker`, i.e. every docker image + container.
+   First-time (no live image yet) it installs automatically.
 4. launches `umd-supervise` detached.
 
 ## The stack
@@ -76,12 +78,36 @@ after a crash or an OOM kill of any component.
 
 ```sh
 ./restart.sh                 # (re)start — the canonical path
+UMD_SYNC=1 ./restart.sh      # deploy a newer image from the /sdcard/umd drop zone
 MEM=8192 ./restart.sh        # override the guest RAM budget
 CPUS=4-7 ./restart.sh        # pin (only for A/B testing; see note above)
 ./umd-status                 # running? + tail of the log (if present)
 ./umd-log [N]                # last N lines of the guest/kernel log (default 80)
 ./umd-stop                   # stop everything (if present)
 ```
+
+## Auto-start after reboot
+
+Termux:Boot (`com.termux.boot`) brings Termux up after a phone reboot, but
+nothing launches the UML on its own. To auto-start it, put `bootstrap.sh`
+(this directory) into `~/.termux/boot/` — create the directory if needed and
+make the file executable:
+
+```sh
+mkdir -p ~/.termux/boot
+install -m 755 <path-to-this-dir>/bootstrap.sh ~/.termux/boot/
+```
+
+**First-time setup:** launch the Termux:Boot app manually at least once (from
+the launcher) so Android registers it for boot events; on Samsung/OEM builds
+it will not auto-start otherwise.
+
+After that, Termux:Boot runs every executable file in `~/.termux/boot/` at
+boot → `restart.sh` → `umd-supervise`. The guest's own init
+(`image/umarm-init`) starts and supervises `sshd` (host:2222) and `dockerd`,
+so `ssh -p 2222 root@<phone-ip>` and `docker` work with no further action.
+Containers persist across reboot — their state lives in the guest image's
+`/var/lib/docker`.
 
 ## One-shot operations into the image
 
