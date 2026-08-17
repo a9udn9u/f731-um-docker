@@ -10,6 +10,10 @@ mkdir -p /dev/pts /tmp /run/sshd /sys/fs/cgroup
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
 mount -t cgroup2 none /sys/fs/cgroup 2>/dev/null
+# ext2 root: stop atime writes on every read (real win for shell/ls/tar).
+# The kernel mounts root from the cmdline (rw,relatime), not fstab, so we
+# must remount explicitly for this to persist across boots.
+mount -o remount,noatime / 2>/dev/null
 
 SHARE=$(sed -n 's/.*umarm.share=\([^ ]*\).*/\1/p' /proc/cmdline)
 CMD=

@@ -1,19 +1,45 @@
 #!/system/bin/sh
+# umd-supervise: run the umnet + linux-um + passt stack forever, respawning
+# on any exit. See ../README.md for the architecture.
+#
+# Layout (see ../README.md):
+#   live files  : $HOME/umd          (real app-partition fs; the guest image lives here)
+#   staging/logs: /sdcard/umd        (drop zone for new images, logs, *.staged files)
+#
+# Env knobs (all optional):
+#   MEM=7168      guest RAM budget, ~80% of the phone's RAM
+#   UMD_IMG=path  guest image file (default $HOME/umd/debian-docker.ext4)
+#   CPUS=4-7      pin the whole stack to these host cores via taskset. Off by
+#                 default: the kernel port measured single-core pinning as a
+#                 regression on real work, so this is an A/B-test knob.
 set +e
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 umask 022
 cd "$HOME/umd" || exit 1
-# Guest RAM budget: ~80% of the phone's physical RAM
-# (7168 fits an 8 GB-class device). Override: MEM=8192 ./restart.sh
 MEM=${MEM:-7168}
+IMG=${UMD_IMG:-$PWD/debian-docker.ext4}
 LOGDIR=/sdcard/umd
+SHARE=/sdcard/umd
 echo "SUPERVISE_START $(date)" >> $LOGDIR/supervise.log
 while :; do
   echo "ITER $(date)" >> $LOGDIR/supervise.log
-  ./umnet --passt ./passt --tcp-port 2222:22 -- \
-    ./linux-um mem=${MEM}M ubd0=/sdcard/umd/debian-docker.ext4 root=/dev/ubda rw \
-    init=/umarm-init stub_exe="$PWD/stub_exe" panic=-1 seccomp=auto \
-    con=null con0=null,fd:1 umarm.share=/sdcard/umd/share >> $LOGDIR/umd.out 2>&1
+  # The SKAS stub: pass an explicit path when we have one (the app's SELinux
+  # domain cannot exec the kernel's default choice); otherwise let the kernel
+  # use its memfd stub.
+  STUB=
+  [ -x "$PWD/stub_exe" ] && STUB="stub_exe=$PWD/stub_exe"
+  if [ -n "$CPUS" ] && command -v taskset >/dev/null 2>&1; then
+    echo "AFFINITY $CPUS" >> $LOGDIR/supervise.log
+    taskset -c "$CPUS" ./umnet --passt ./passt --tcp-port 2222:22 -- \
+      ./linux-um mem=${MEM}M ubd0="$IMG" root=/dev/ubda rw \
+      init=/umarm-init $STUB panic=-1 seccomp=auto \
+      con=null con0=null,fd:1 umarm.share=$SHARE >> $LOGDIR/umd.out 2>&1
+  else
+    ./umnet --passt ./passt --tcp-port 2222:22 -- \
+      ./linux-um mem=${MEM}M ubd0="$IMG" root=/dev/ubda rw \
+      init=/umarm-init $STUB panic=-1 seccomp=auto \
+      con=null con0=null,fd:1 umarm.share=$SHARE >> $LOGDIR/umd.out 2>&1
+  fi
   echo "STACK_EXITED rc=$? $(date)" >> $LOGDIR/supervise.log
   sleep 3
 done

@@ -1,4 +1,4 @@
-# f731-uml
+# f731-uml-docker
 
 > **Provenance.** This project was entirely *vibe-coded* — designed, built, and
 > debugged end-to-end by an AI agent running **Usloth Qwen3.8 27B Q6** — with
